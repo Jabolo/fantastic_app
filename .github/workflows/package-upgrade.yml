@@ -1,0 +1,52 @@
+# Based on: https://developermemos.com/posts/automate-flutter-package-upgrades-github
+
+name: Upgrade packages
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run on thursday at midnight
+    - cron: "0 0 * * 4"
+
+jobs:
+  upgrade_package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: subosito/flutter-action@v1.5.3
+
+      - name: Run upgrade
+        run: flutter pub upgrade --major-versions
+
+      - name: Run get
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test --no-pub --coverage --test-randomize-ordering-seed random
+
+      - name: Check remaining outdated packages
+        id: check_outdated
+        run: |
+          content="$(flutter pub outdated)"
+          content="${content//'%'/'%25'}"
+          content="${content//$'\n'/'%0A'}"
+          content="${content//$'\r'/'%0D'}"
+          echo "::set-output name=outdated_info::$content"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: Upgrade packages
+          title: Upgrade packages
+          body: |
+            Output for outdated check following upgrades:
+            ```
+            ${{ steps.check_outdated.outputs.outdated_info }}
+            ```
+          branch: feature/update-packages
+
+
+
